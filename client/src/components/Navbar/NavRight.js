@@ -55,14 +55,14 @@ const NavRight = () => {
   if (sessionID === null) {
     return (
       <Nav>
-        <Nav.Link href="/login">Login</Nav.Link>
+        <Nav.Link href="/login" style={{ textAlign: "center"}}>Login</Nav.Link>
       </Nav>
     )
   }
   else if (user != null && (user.role_id === 3 || user.role_id === 2)) {
     return (
-      <Nav style={{ position: "relative" }}>
-        <span style={{ position: "absolute", right: "140px", top: "0.00001px", fontSize: "63%" }}>{role}</span>
+      <Nav style={{ position: "relative", textAlign: "center"}}>
+        <span style={{ position: "absolute", right: "140px", top: "0.00001px", fontSize: "50%" }}>{role}</span>
         <Nav.Link href="/store">{storeName}</Nav.Link>
         <Nav.Link href="/profile">Profile</Nav.Link>
         <Nav.Link onClick={() => logout()}>Logout</Nav.Link>
@@ -72,7 +72,7 @@ const NavRight = () => {
   else {
     return (
       <Nav style={{ position: "relative" }}>
-        <span style={{ position: "absolute", right: "115px", top: "0.00001px", fontSize: "50%" }}>{role + " " + user.name}</span>
+        <span style={{ position: "relative", right: "-110px", top: "0.00001px", fontSize: "50%" }}>{role + " " + user.name}</span>
         <Nav.Link href="/profile">Profile</Nav.Link>
         <Nav.Link onClick={() => logout()}>Logout</Nav.Link>
       </Nav>

@@ -1,10 +1,11 @@
 .form_container{
   display: flex;
   justify-content: center;
+  width: 35%;
   flex-direction: column;
   align-items: center;
   font-size: 2rem;
-  margin: 5rem 0;
+  margin: 0 auto;
   border-radius: 15px;
   box-shadow: 0 0 15px grey;
 }
@@ -20,7 +21,7 @@ input{
 }
 
 form{
-  width: 480px;
+  width: 80%;
 }
 
 form>div{
@@ -43,5 +44,94 @@ form>div{
   100% {
       background-color: white;
       color: red;
+  }
+}
+
+.passwordLabel, .emailLabel{
+  display: flex; 
+  align-items: center;
+}
+
+.spanNote{
+  color: darkgrey; 
+  font-size: 14px; 
+  position: absolute; 
+  bottom: -19px; 
+  right: -2px;
+}
+
+.nameInputs{
+  width: 430px;
+  margin-left: auto
+}
+.form{
+  width: 500px
+}
+
+@media only screen and (max-width: 1500px) {
+  .form_container{
+    width: 45%
+  }
+}
+
+@media only screen and (max-width: 1200px) {
+  .form_container{
+    width: 55%
+  }
+}
+
+@media only screen and (max-width: 950px) {
+  .form_container{
+    width: 65%
+  }
+}
+
+@media only screen and (max-width: 800px) {
+  .form_container{
+    margin: 0 auto;
+    width: 90%;
+    border-radius: unset;
+    box-shadow: none;
+  }
+  
+  form > div{
+    width: 100%
+  }
+  .password, .email{
+    width: 250px
+  }
+  .passwordLabel, .emailLabel{
+    font-size: 20px;
+  }
+}
+
+@media only screen and (max-width: 560px) {
+  .form{
+    width: 370px
+  }
+  .form_container{
+    width: 95%;
+  }
+  .emailDiv, .passwordDiv{
+    display: flex;
+    flex-direction: column;
+  }
+  .passwordLabel, .emailLabel{
+    margin: 0 auto;
+  }
+  .email,.password{
+    margin: 0 auto;
+    width: 360px
+  }
+  .nameInputs{
+    width: 332px;
+    margin: 2rem auto
+  }
+  .nameInputs > div {
+    padding: 0
+  }
+  .spanNote{
+    bottom: -21px;
+    right: 17px
   }
 }

@@ -3,6 +3,7 @@ import { Button, Card, Col, Container, Image, ListGroup, Row } from 'react-boots
 import { Link, useParams } from 'react-router-dom'
 import Axios from 'axios';
 import '../css/bootstrap.min.css';
+import '../css/productCard.css';
 import Comment from '../../components/product/Comment';
 import AddComment from '../../components/product/AddComment';
 import Loading from '../cart/loading.gif';
@@ -13,6 +14,7 @@ const ProductScreen = (props) => {
   const [recommendedProducts, setRecommendedProducts] = useState([]);
   const [product, setProduct] = useState([]);
   const [comments, setComments] = useState([""]);
+  const [userIDs, setUserIDs] = useState([]);
   const { id } = useParams();
   let user;
   const sessionID = null || localStorage.getItem('sessionID') || sessionStorage.getItem('sessionID');
@@ -47,8 +49,8 @@ const ProductScreen = (props) => {
       withCredentials: true,
       url: `${url}/getComments/${id}`,
     });
-    setComments(res.data);
-    console.log(res.data);
+    setComments(res.data.comments);
+    setUserIDs(res.data.userIDs)
   }
   /*const change = async (e) => {
     e.preventDefault();
@@ -148,19 +150,24 @@ const ProductScreen = (props) => {
 
         }
       </div>
-      {(user && user.role_id === 1) ?
+      {(user && user.role_id === 1 && userIDs.includes(user.user_id)) ?
         <div style={{ marginBottom: "5rem" }}>
           <h3 style={{ textAlign: "center" }}>Add Comment</h3>
           <AddComment productID={id} user={user} />
         </div> : null}
       <div>
 
-        <div style={{ margin: "5rem" }}>
+        <div className="recommendedDiv">
           <Row className="justify-content-md-center">
-            <Col md="auto"><h3>You might also like </h3></Col>
+            <Col md="auto">
+              <h3 className="recommendedH3">You might also like </h3>
+            </Col>
           </Row>
           <Row className="justify-content-md-center">
-            <Col md="auto"><Button className='btn btn-light my-3' onClick={getRecommendedProducts}>Refresh</Button></Col></Row>
+            <Col md="auto">
+              <Button className='btn btn-light my-3 refButton' onClick={getRecommendedProducts}>Refresh</Button>
+            </Col>
+          </Row>
           <Container>
             <Row>
               {

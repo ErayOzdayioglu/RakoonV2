@@ -4,7 +4,8 @@ const db = require('../../config/database.js');
 const bcrypt = require('bcryptjs');
 const nodemailer = require("nodemailer");
 const User = require("../../models/user");
-
+const webpush = require("web-push");
+const Notification = require("../../models/notification_name");
 const VerifyMail = function (user, token) {
   var smtpTransport = nodemailer.createTransport({
     service: 'Gmail',
@@ -28,7 +29,7 @@ const VerifyMail = function (user, token) {
 
 router.post("/getStoreName", async (req, res) => {
   const user_id = req.body.user_id;
-  const storeName = (req.body.role_id === 3) ? 
+  const storeName = (req.body.role_id === 3) ?
     await db.get(`SELECT store_name FROM store WHERE owner_id=${user_id}`) :
     await db.get(`SELECT store_name FROM store WHERE store_id=(
         SELECT store_id FROM sales_managers WHERE user_id=${user_id}
@@ -39,10 +40,10 @@ router.post("/getStoreName", async (req, res) => {
 
 router.post("/getStoreItems", async (req, res) => {
   const user_id = req.body.user_id;
-  const items = ( req.body.role_id === 3 ) ? await db.get(`SELECT * FROM rakoon.items WHERE store_id=
+  const items = (req.body.role_id === 3) ? await db.get(`SELECT * FROM rakoon.items WHERE store_id=
 	  (SELECT store_id FROM rakoon.store WHERE owner_id=${user_id})
-  `) : 
-  await db.get(`SELECT * FROM rakoon.items WHERE store_id=(
+  `) :
+    await db.get(`SELECT * FROM rakoon.items WHERE store_id=(
     SELECT store_id FROM sales_managers WHERE user_id=${user_id}
   )`);
   res.send(items);
@@ -50,28 +51,28 @@ router.post("/getStoreItems", async (req, res) => {
 
 router.post("/getStoreInfo", async (req, res) => {
   const user_id = req.body.user_id;
-  const storeInfo = (req.body.role_id === 3) ? await db.get(`SELECT * FROM rakoon.store WHERE owner_id=${user_id}`) : 
+  const storeInfo = (req.body.role_id === 3) ? await db.get(`SELECT * FROM rakoon.store WHERE owner_id=${user_id}`) :
     await db.get(`
       SELECT * FROM store WHERE store_id=
         (SELECT store_id FROM sales_managers WHERE user_id=${user_id})`);
-  
+
   const items = await db.get(`SELECT item_id, category FROM rakoon.items WHERE store_id=${storeInfo[0].store_id}`);
   let ownerName = await db.get(`SELECT name, surname FROM rakoon.users WHERE user_id=${storeInfo[0].owner_id}`);
-  ownerName = `${ownerName[0].name} ${ownerName[0].surname}`; 
+  ownerName = `${ownerName[0].name} ${ownerName[0].surname}`;
 
   const categories = new Map();
-  for(let item of items){
-    if(categories.get(item.category) === undefined)
-      categories.set(item.category,1);
+  for (let item of items) {
+    if (categories.get(item.category) === undefined)
+      categories.set(item.category, 1);
     else
-      categories.set(item.category, categories.get(item.category)+1)
+      categories.set(item.category, categories.get(item.category) + 1)
   }
 
   storeInfo[0].categories = categories;
   storeInfo[0].items = items;
   storeInfo[0].owner = ownerName;
 
-  res.send({...storeInfo[0], categories: [...categories]});
+  res.send({ ...storeInfo[0], categories: [...categories] });
 });
 
 router.post("/addProduct", async (req, res) => {
@@ -83,7 +84,7 @@ router.post("/addProduct", async (req, res) => {
 
 router.put("/editProduct", async (req, res) => {
   const item = req.body.item;
-  await db.get(`UPDATE rakoon.items SET 
+  await db.get(`UPDATE rakoon.items SET
     item_name = '${item.name}',
     price = ${parseFloat(item.price)},
     description = '${item.description}',
@@ -134,16 +135,16 @@ router.post("/getSalesManagers", async (req, res) => {
 
   const salesManagers = (req.body.role_id === 3) ? await db.get(`
     SELECT name, surname FROM users JOIN (
-      SELECT user_id FROM rakoon.sales_managers 
+      SELECT user_id FROM rakoon.sales_managers
         WHERE store_id = (SELECT store_id FROM store WHERE owner_id=${user_id})
       ) sales_managers ON users.user_id=sales_managers.user_id`
-    ) : 
+  ) :
     await db.get(`
     SELECT name, surname FROM users JOIN (
-      SELECT user_id FROM rakoon.sales_managers 
+      SELECT user_id FROM rakoon.sales_managers
         WHERE store_id = (SELECT store_id FROM sales_managers WHERE user_id=${user_id})
       ) sales_managers ON users.user_id=sales_managers.user_id`);
-    
+
   res.send(salesManagers);
 });
 
@@ -151,11 +152,22 @@ router.post("/getComments/:id", async (req, res) => {
   const productID = req.params.id;
 
   const comments = await db.get(`
-    SELECT name, surname, comment, rate, users.user_id, DATE_FORMAT(date, '%d/%m/%Y') AS date FROM rakoon.ratings 
+    SELECT name, surname, comment, rate, users.user_id, DATE_FORMAT(date, '%d/%m/%Y') AS date FROM rakoon.ratings
       JOIN users ON ratings.user_id=users.user_id WHERE item_id=${productID} AND ratings.is_verified=1;
   `);
-  
-  res.send(comments);
+
+  const orderID = await db.get(`
+    SELECT customer_id FROM orders
+    WHERE seller_id = (SELECT store_id FROM items WHERE item_id=${productID})
+    GROUP BY customer_id
+  `);
+
+  let orderIDs=[];
+  for(let obj of orderID)
+    if(!orderIDs.includes(obj.customer_id))
+      orderIDs.push(obj.customer_id);
+
+  res.send({comments: comments, userIDs: orderIDs});
 });
 
 router.post("/getStoreComments", async (req, res) => {
@@ -163,7 +175,7 @@ router.post("/getStoreComments", async (req, res) => {
 
   const unrated = await db.get(`
   SELECT * FROM
-    (SELECT 
+    (SELECT
       ratings.rating_id,
         ratings.user_id,
         ratings.comment,
@@ -178,7 +190,7 @@ router.post("/getStoreComments", async (req, res) => {
       FROM ratings
       JOIN items ON ratings.item_id = items.item_id
       JOIN users ON users.user_id = ratings.user_id) AS J
-    WHERE J.store_id = (SELECT store_id FROM rakoon.store WHERE owner_id=${user_id}) 
+    WHERE J.store_id = (SELECT store_id FROM rakoon.store WHERE owner_id=${user_id})
     AND J.is_verified = 0
   `);
 
@@ -187,24 +199,24 @@ router.post("/getStoreComments", async (req, res) => {
     console.log(comment);
     if(map.get(comment.item_id) !== undefined)
       map.set(comment.item_id, [...map.get(comment.item_id),comment]);
-    else 
+    else
       map.set(comment.item_id, [comment]);
     }
   console.log(map) */
-  
+
   //const rates = await db.get(`SELECT `);
   res.send(unrated);
-}); 
+});
 
 router.put("/verifyComment", async (req, res) => {
   const rating_id = req.body.rating_id;
   const accept = req.body.accept;
 
-  if(accept){
+  if (accept) {
     await db.get(`UPDATE rakoon.ratings SET is_verified=1 WHERE rating_id=${rating_id}`);
     res.send("verified");
-  } 
-  else{
+  }
+  else {
     await db.get(`UPDATE rakoon.ratings SET is_verified=-1 WHERE rating_id=${rating_id}`);
     res.send("notverified");
   }
@@ -212,13 +224,13 @@ router.put("/verifyComment", async (req, res) => {
 
 router.post("/store/orders", async (req, res) => {
   const user = req.body.user;
-  
+
   const orders = await db.get(`
-      SELECT  orders.*, 
-        items.item_name, 
+      SELECT  orders.*,
+        items.item_name,
         items.image,
-        items.price FROM orders 
-      JOIN items 
+        items.price FROM orders
+      JOIN items
       ON items.item_id = orders.item_id
       WHERE seller_id=(
         SELECT store_id FROM sales_managers WHERE user_id = ${user.user_id}
@@ -226,14 +238,14 @@ router.post("/store/orders", async (req, res) => {
   `);
 
   const map = new Map();
-  for(let order of orders){
-    if(map.get(order.date) === undefined) map.set(order.date, [order])
+  for (let order of orders) {
+    if (map.get(order.date) === undefined) map.set(order.date, [order])
     else map.set(order.date, [...map.get(order.date), order]);
   }
 
   const obj = {};
   const it = map.keys();
-  for(let next = it.next(); next.value !== undefined; next = it.next())
+  for (let next = it.next(); next.value !== undefined; next = it.next())
     obj[next.value] = map.get(next.value)
 
   res.send(obj);
@@ -241,7 +253,7 @@ router.post("/store/orders", async (req, res) => {
 
 router.put("/store/updateorder", async (req, res) => {
   const orders = req.body.orders;
-  for(let order of orders)
+  for (let order of orders)
     await db.get(`UPDATE orders SET status='${order.status}' WHERE item_id=${order.item_id} AND order_id=${order.order_id}`);
   res.send("done");
 });
@@ -253,7 +265,7 @@ router.post("/getCampaigns", async (req, res) => {
   console.log(req.body);
   console.log("in /getCampaigns");
 
-  const campaigns =(role_id === 3) ?
+  const campaigns = (role_id === 3) ?
     //store owner
     await db.get(`
       SELECT campaigns.*, items.*, users.name, users.surname FROM(
@@ -264,7 +276,7 @@ router.post("/getCampaigns", async (req, res) => {
           JOIN campaign_items ON J.campaign_id = campaign_items.campaign_id) AS campaigns
         JOIN items ON items.item_id = campaigns.item_id
       JOIN users ON users.user_id = campaigns.user_id
-    `) : 
+    `) :
     //sales manager
     await db.get(`
       SELECT campaigns.*, items.*, users.name, users.surname FROM(
@@ -275,26 +287,26 @@ router.post("/getCampaigns", async (req, res) => {
           JOIN campaign_items ON J.campaign_id = campaign_items.campaign_id) AS campaigns
         JOIN items ON items.item_id = campaigns.item_id
       JOIN users ON users.user_id = campaigns.user_id
-    `); 
-  
+    `);
+
   let map = new Map();
-  for(let item of campaigns){
-    if(map.get(item.campaign_id) === undefined) map.set(item.campaign_id, [item])
+  for (let item of campaigns) {
+    if (map.get(item.campaign_id) === undefined) map.set(item.campaign_id, [item])
     else map.set(item.campaign_id, [...map.get(item.campaign_id), item])
   }
 
   let obj = {};
 
-  Array.from(map.keys()).forEach( campaign_id => {
+  Array.from(map.keys()).forEach(campaign_id => {
     obj[campaign_id] = map.get(campaign_id)
   })
 
   res.send(obj);
 });
 
-function decimal(num){
+function decimal(num) {
   const str = String(num);
-  if(str.includes === ".") return parseFloat(str.split('.')[0] + '.' + str.split('.')[1].substring(0,2));
+  if (str.includes === ".") return parseFloat(str.split('.')[0] + '.' + str.split('.')[1].substring(0, 2));
   return parseFloat(str);
 }
 
@@ -305,19 +317,19 @@ router.post("/store/deployCampaignByCategory", async (req, res) => {
   const discount = parseFloat('0.' + req.body.discount);
 
   await db.get(`
-    INSERT INTO campaigns(store_id, user_id, by_date, discount) 
+    INSERT INTO campaigns(store_id, user_id, by_date, discount)
     VALUES((SELECT store_id FROM sales_managers WHERE user_id=${user_id}), ${user_id}, '${date}', ${discount});
   `);
 
-  for(let item_id of item_ids){
+  for (let item_id of item_ids) {
     const old_price = await db.get(`SELECT price FROM items WHERE item_id=${item_id}`);
 
     await db.get(`
       INSERT INTO campaign_items(item_id, campaign_id, old_price, new_price) VALUES(
-        (SELECT item_id FROM items WHERE item_id=${item_id}), 
+        (SELECT item_id FROM items WHERE item_id=${item_id}),
         (SELECT campaign_id FROM campaigns ORDER BY campaign_id DESC LIMIT 1),
         ${old_price[0].price},
-        ${decimal(old_price[0].price * (1-discount))}
+        ${decimal(old_price[0].price * (1 - discount))}
       )
     `);
   }
@@ -332,7 +344,7 @@ router.post("/store/deployCampaignByProduct", async (req, res) => {
   const discount = parseFloat('0.' + req.body.discount);
 
   await db.get(`
-    INSERT INTO campaigns(store_id, user_id, by_date, discount) 
+    INSERT INTO campaigns(store_id, user_id, by_date, discount)
     VALUES((SELECT store_id FROM sales_managers WHERE user_id=${user_id}), ${user_id}, '${date}', ${discount});
   `);
 
@@ -341,10 +353,10 @@ router.post("/store/deployCampaignByProduct", async (req, res) => {
 
   await db.get(`
     INSERT INTO campaign_items(item_id, campaign_id, old_price, new_price) VALUES(
-      (SELECT item_id FROM items WHERE item_id=${item_id[0].item_id}), 
+      (SELECT item_id FROM items WHERE item_id=${item_id[0].item_id}),
       (SELECT campaign_id FROM campaigns ORDER BY campaign_id DESC LIMIT 1),
       ${old_price[0].price},
-      ${decimal(old_price[0].price * (1-discount))}
+      ${decimal(old_price[0].price * (1 - discount))}
     )
   `);
 
@@ -358,9 +370,9 @@ router.post("/store/deployCampaignByPrice", async (req, res) => {
   const discount = parseFloat('0.' + req.body.discount);
   const minPrice = parseFloat(req.body.minPrice);
   const maxPrice = parseFloat(req.body.maxPrice);
-  
+
   await db.get(`
-    INSERT INTO campaigns(store_id, user_id, by_date, discount) 
+    INSERT INTO campaigns(store_id, user_id, by_date, discount)
     VALUES((SELECT store_id FROM sales_managers WHERE user_id=${user_id}), ${user_id}, '${date}', ${discount});
   `);
 
@@ -370,19 +382,18 @@ router.post("/store/deployCampaignByPrice", async (req, res) => {
     )
   `);
 
-  for(let item_id of item_ids){
+  for (let item_id of item_ids) {
     const old_price = await db.get(`SELECT price FROM items WHERE item_id=${item_id.item_id}`);
 
     await db.get(`
       INSERT INTO campaign_items(item_id, campaign_id, old_price, new_price) VALUES(
-        (SELECT item_id FROM items WHERE item_id=${item_id.item_id}), 
+        (SELECT item_id FROM items WHERE item_id=${item_id.item_id}),
         (SELECT campaign_id FROM campaigns ORDER BY campaign_id DESC LIMIT 1),
         ${old_price[0].price},
-        ${decimal(old_price[0].price * (1-discount))}
+        ${decimal(old_price[0].price * (1 - discount))}
       )
     `);
   }
-  
 
   res.send("done");
 });
@@ -391,14 +402,54 @@ router.post("/store/getSales", async (req, res) => {
   const user_id = req.body.user_id;
 
   const sales = await db.get(`
-    SELECT orders.* FROM
-      (SELECT store_id FROM sales_managers WHERE user_id=${user_id})
-      AS sales_managers
-    JOIN orders ON orders.seller_id = sales_managers.store_id
+    SELECT
+    COUNT(orders.order_id) as products,
+    DATE_FORMAT(orders.date, "%d-%m-%Y") as name
+      FROM (SELECT store_id FROM sales_managers WHERE user_id=${user_id})
+        AS sales_managers
+      JOIN orders ON orders.seller_id = sales_managers.store_id
+      WHERE status = 'delivered'
+      GROUP BY date
   `);
-  console.log(sales);
 
-  res.send("done");
+  const category = await db.get(`
+    SELECT
+    COUNT(category) as products,
+    category as name
+      FROM (SELECT store_id FROM sales_managers WHERE user_id=${user_id})
+        AS sales_managers
+      JOIN orders ON orders.seller_id = sales_managers.store_id
+      JOIN items ON items.item_id = orders.item_id
+      WHERE status = 'delivered'
+      GROUP BY category
+  `);
+  console.log("line 398:");
+  console.log({ sales: sales, category: category });
+
+  res.send({ sales: sales, category: category });
 });
+
+router.post("/store/sendNotification", async (req, res) => {
+  const publicvapidkey = "BDBeRvuYwbqaz2_m4-3Mai3FFyyCZwQ8u2X12AKPg_KBGzf6_Lh40g4r-0vGdYlI4qYozJJ10VcWJB8p4lel9Ro";
+  const privatevapidkey = "ISIut9dFbHDC7B6RiCU9NB5jujq_AuY6nkNTTixQgtQ";
+  webpush.setVapidDetails('mailto:rakoonecommerceservices@gmail.com', publicvapidkey, privatevapidkey);
+  const body = await Notification.findOne({ where: { idnotification_name: 1 } });
+  const subscribtion = req.body;
+  console.log(body.notification_body);
+
+  const payload = JSON.stringify({ title: "Rakoon E-Commerce", body: body.notification_body });
+
+  webpush.sendNotification(subscribtion, payload).catch((err) => console.log(err));
+});
+
+router.post("/store/setNotification", async (req, res) => {
+  const message = req.body.message;
+  await Notification.update({ notification_body: message }, {
+    where: {
+      idnotification_name: 1
+    }
+  });
+  res.send("");
+})
 
 module.exports = router;
