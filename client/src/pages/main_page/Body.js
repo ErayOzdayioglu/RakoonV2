@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Axios from 'axios'
 import ProductCard from '../../components/product/product_card';
 import '../css/bootstrap.min.css';
-import { Col, Row, Container } from 'react-bootstrap';
+import { Col, Row, Container, Form } from 'react-bootstrap';
 
 
 const Body = (props) => {
@@ -17,7 +17,6 @@ const Body = (props) => {
       url: `${url}/products`,
     });
     setProducts(res.data);
-    console.log(res.data);
   };
 
   useEffect(() => {
@@ -68,6 +67,26 @@ const Body = (props) => {
         Welcome to Rakoon E-Commerce!
       </h3>
       {/* <Filter products={products}/> */}
+   
+      <div class="row">
+        <div class="col">
+          <Form.Control as="select" defaultValue="Select">
+            <option>Price</option>
+            <option>0-$50</option>
+            <option>$50-$200</option>
+            <option>$200-$500</option>
+            <option>+$500</option>
+          </Form.Control>
+          </div>
+    
+          <div class="col">
+          <Form.Control as="select" defaultValue="Select">
+            <option>Store</option>
+            <option>A</option>
+            <option>B</option>
+          </Form.Control>
+          </div>
+          </div>
 
       <div className="container p-5">
         <select
@@ -96,9 +115,6 @@ const Body = (props) => {
           <input type="button" onClick={() => find()} value="Filter" />
         </div>
       </div>
-
-
-
       <Container>
         <Row>
           {
@@ -106,7 +122,7 @@ const Body = (props) => {
               return (
                 <Col sm={12} md={6} lg={4} xl={3} key={product.item_id}>
                   <ProductCard key={product.item_id} id={product.item_id} {...product}
-                    numOfItems={props.numOfItems} setNumOfItems={props.setNumOfItems} />
+                    numOfItems={props.numOfItems} setNumOfItems={props.setNumOfItems} isRemovable={false}/>
                 </Col>
               );
             })

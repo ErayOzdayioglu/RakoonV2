@@ -4,6 +4,7 @@ import { useHistory } from 'react-router-dom';
 import Axios from 'axios';
 import StoreNav from './StoreNav'
 const jwt = require("jsonwebtoken");
+var https = require('https');
 
 const StoreNotification = () => {
     const [message, setMessage] = useState("");
@@ -11,25 +12,30 @@ const StoreNotification = () => {
     const user = jwt.verify(sessionID, 'shhhhh');
     let history = useHistory();
     var url = process.env.NODE_ENV === "production" ? "https://rakoon-v-2-kbmgw.ondigitalocean.app" : "http://localhost:4000";
-    
+
+
+
+
     const setNotification = async (message, e) => {
         e.preventDefault();
-        console.log(message);
         const res = await Axios({
             method: "POST",
             data: {
-                message: message
+                message: message,
             },
             withCredentials: true,
-            url: `${url}/store/setNotification`,
-        });
+            url: `${url}/store/sendNotification`
+        })
+
+
+
         history.push('/store/notification');
         window.location.reload();
-        console.log(res);
+
     }
 
     useEffect(() => {
-        
+
     }, [])
 
 
@@ -42,7 +48,7 @@ const StoreNotification = () => {
                         <Form.Label>Enter your notification here</Form.Label>
                         <Form.Control onChange={(e) => setMessage(e.target.value)}>
                         </Form.Control>
-                        <Button type = "submit" onClick={(e) => setNotification(message, e)}>Submit</Button>
+                        <Button type="submit" onClick={(e) => setNotification(message, e)}>Submit</Button>
                     </Form>
                 </Card.Body>
             </Card>
