@@ -37,12 +37,18 @@ const Body = (props) => {
     getStoreNames();
   }, []);
 
+  const [color, setColor] = React.useState();
+  const filterColor = () => {
+    setProducts(products.filter(product => product.color == "Black"))
+  }
+  
   const find = () => {
     if (max !== null && min != null)
       setProducts(products.filter(product => product.price < max && product.price > min))
   }
 
   const [orderState, setOrderState] = useState("NameAsc");
+  const [colorState, setColorState] = useState("White");
 
   const sortAsc = sortBy => (a, b) => {
     if (a[sortBy] > b[sortBy]) {
@@ -109,6 +115,25 @@ const Body = (props) => {
         <div style={{ marginBottom: "1rem" }}>
           <select
             className="custom-select"
+            value={color}
+            onChange={(e) => {
+              const selectedColor = e.target.value;
+              setColorState(selectedColor);
+              filterColor();
+            }}
+          >
+            <option value="Red">Red</option>
+            <option value="White">White</option>
+            <option value="Black">Black</option>
+            <option value="Mixed">Blue</option>
+            <option value="Mixed">Mixed</option>
+          </select>
+        </div>
+
+
+        <div style={{ marginBottom: "1rem" }}>
+          <select
+            className="custom-select"
             value={orderState}
             onChange={(e) => {
               const selectedOrder = e.target.value;
@@ -130,15 +155,28 @@ const Body = (props) => {
               <input id="min" type="number" onChange={(e) => setMin(parseInt(e.target.value))} className="minPrice" />
               <input id="max" type="number" onChange={(e) => setMax(parseInt(e.target.value))} className="maxPrice" />
             </div>
+            <div>
             <input type="button" onClick={() => find()} value="Filter"
               style={{
-                display: "block",
+                display: "inline-block",
                 margin: "1rem auto 0",
-                padding: "7px",
+                padding: "11px",
                 fontSize: "18px",
                 color: "white",
                 backgroundColor: "black"
               }} />
+              <input type="button" onClick={() => getProducts()} value="Reset"
+              style={{
+                display: "inline-block",
+                margin: "1rem auto 0",
+                padding: "11px",
+                fontSize: "18px",
+                color: "white",
+                backgroundColor: "black"
+              }} />
+
+            </div>
+            
           </div>
         </div>
       </div>
