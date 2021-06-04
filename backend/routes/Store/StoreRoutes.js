@@ -7,7 +7,8 @@ const User = require("../../models/user");
 const webpush = require("web-push");
 const Notification = require("../../models/notification_name");
 const OneSignal = require('onesignal-node');
-
+const Store = require("../../models/store");
+const Items = require("../../models/item");
 
 
 const VerifyMail = function (user, token) {
@@ -18,13 +19,14 @@ const VerifyMail = function (user, token) {
       pass: "rakoon123"
     }
   });
+  console.log(user.email);
   var mailOptions = {
-    to: user.e_mail,
+    to: user.email,
     from: 'rakoonecommerceservices@gmail.com',
     subject: 'Activation E-Mail',
     text: 'Hello,\n\n' +
       'To activate to your account please click the link below \n' +
-      'http://localhost:3000/activate/' + token
+      'https://rakoonecommerce.netlify.app/activate/' + token
   };
   smtpTransport.sendMail(mailOptions, function (err) {
     console.log('Success! e-mail has been sent');
@@ -126,7 +128,7 @@ router.post("/addSalesManager", async (req, res) => {
       (SELECT store_id FROM rakoon.store WHERE owner_id=${user.owner_id})
     )`);
 
-    VerifyMail(user.email, activate);
+    VerifyMail(user, activate);
 
     res.send(true);
   } else {
@@ -483,8 +485,8 @@ router.post("/store/sendNotification", async (req, res) => {
     },
     included_segments: ['Subscribed Users']
   };
-  client.createNotification(notification).then(res => {
-
+  client.createNotification(notification).then(response => {
+    res.send(response);
   }).catch(e => {
     console.log(e);
   });
@@ -498,6 +500,21 @@ router.post("/store/setNotification", async (req, res) => {
     }
   });
   res.send("");
+});
+
+router.post("/store/storenames", async (req, res) => {
+  const categoryName = req.body.category;
+  var stores = {};
+  if (categoryName === "all") {
+    stores = await db.get("select store_name from store where store_id in (SELECT store_id FROM rakoon.items group by store_id);");
+
+  }
+  else {
+    stores = await db.get(`select store_name from store where store_id in (SELECT store_id FROM rakoon.items where category = '${categoryName}' group by store_id)`);
+  }
+
+  res.send(stores)
+
 })
 
 module.exports = router;
